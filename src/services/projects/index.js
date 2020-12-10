@@ -7,6 +7,7 @@ const { check, validationResult } = require("express-validator")
 
 const router = express.Router()
 const projectsFilePath = path.join(__dirname, "projects.json")
+const reviewsFilePath = path.join(__dirname, "reviews.json")
 
 router.get("/:id", async (req, res, next) => {
   try {
@@ -115,6 +116,50 @@ router.put("/:id", async (req, res, next) => {
     next(error)
   }
 })
+
+// GET /projects/id/reviews => get all the reviews for a given project
+router.get("/:projectID/reviews", async (req, res, next) => {
+  try {
+    const reviews = await readDB(reviewsFilePath)
+    const filteredReviews = reviews.filter(
+      (review) => review.projectID === req.params.projectID
+    );
+
+    res.send(filteredReviews);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /projects/id/reviews => add a new review for the given project
+router.post("/:projectID/reviews", async (req, res, next) => {
+    try {
+      const errors = validationResult(req)
+
+      if (!errors.isEmpty()) {
+        const err = new Error()
+        err.message = errors
+        err.httpStatusCode = 400
+        next(err)
+      } else {
+        const reviewsDB = await readDB(reviewsFilePath)
+        const newReview = {
+          ...req.body,
+          ID: uniqid(),
+          addedAt: new Date(),
+        }
+
+        reviewsDB.push(newReview)
+
+        await writeDB(reviewsFilePath, reviewsDB)
+
+        res.status(201).send({ ...req.body })
+      }
+    } catch (error) {
+      next(error)
+    }
+  }
+)
 
 
 module.exports = router
