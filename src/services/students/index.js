@@ -1,12 +1,17 @@
 const express = require("express")
 const path = require("path")
 const uniqid = require("uniqid")
+const multer = require("multer")
+const {pipeline} = require("stream")
+const zlib = require("zlib")
 const { readDB, writeDB } = require("../lib/utilities")
 
 const { check, validationResult } = require("express-validator")
+const upload = multer({})
 
 const router = express.Router()
 const studentsFilePath = path.join(__dirname, "students.json")
+const studentsFolderPath = path.join(__dirname, "../../../public/img/students")
 
 router.get("/:id", async (req, res, next) => {
   try {
@@ -125,5 +130,40 @@ router.get("/:studentID/projects", async (req, res, next) => {
     next(err);
   }
 });
+
+/*
+  POST /students/id/uploadPhoto => 
+  uploads a picture 
+  (save as idOfTheStudent.jpg in the public/img/students folder)
+  for the student specified by the id. 
+  Add a field on the students model called image, 
+  in where you store the newly created URL 
+  (http://localhost:3000/img/students/idOfTheStudent.jpg)
+ */
+router.post("/:id/uploadPhoto", upload.single("avatar"), async (req, res, next) => {
+  try {
+    await writeDB(
+      path.join(studentsFolderPath, req.params.id+".png"),
+      req.file.buffer
+    )
+    res.send("ok")
+  } catch (error) {
+    console.log(error)
+    next(error)
+  }
+})
+
+
+//THIS DOESNT WORK -------- 500 GENEREAL SERVER ERROR
+router.get("/:name/download", (req, res, next) => {
+  const source = createReadStream(
+    path.join(studentsFolderPath, `${req.params.name}`)
+  )
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename=${req.params.name}.gz`
+  )
+  pipeline(source, zlib.createGzip(), res, error => next(error))
+})
 
 module.exports = router
